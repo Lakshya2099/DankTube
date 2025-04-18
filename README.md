@@ -43,10 +43,6 @@ Here’s an enhanced and engaging `README.md` for **DankTube**:
 2. Upload your favorite videos and share them with the community.
 3. Engage with videos through comments and likes.
 
-## 📸 Screenshots
-
-![DankTube Interface](https://via.placeholder.com/600x400)
-
 ## 🛡️ Security
 
 DankTube prioritizes the security of user data by implementing robust authentication and ensuring secure video uploads. 
