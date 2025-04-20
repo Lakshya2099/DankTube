@@ -428,23 +428,18 @@ const getVideos = async (criteria) => {
     searchText,
     uid,
     notUid
-  } = criteria
+  } = criteria;
 
-  limit = parseInt(limit)
+  limit = parseInt(limit);
 
-  const query = {}
+  const query = {};
 
-  if (channel) query.channel = channel
-
-  if (lengthGreaterThan !== undefined) query.length = { ...query.length, $gt: lengthGreaterThan }
-
-  if (lengthLessThan !== undefined) query.length = { ...query.length, $lt: lengthLessThan }
-
-  if (privacySettings) query.privacySettings = privacySettings
-
-  if (title) query.title = { $regex: title, $options: 'i' }  // case-insensitive regex search
-  if (description) query.description = { $regex: description, $options: 'i' }  // case-insensitive regex search
-
+  if (channel) query.channel = channel;
+  if (lengthGreaterThan !== undefined) query.length = { ...query.length, $gt: lengthGreaterThan };
+  if (lengthLessThan !== undefined) query.length = { ...query.length, $lt: lengthLessThan };
+  if (privacySettings) query.privacySettings = privacySettings;
+  if (title) query.title = { $regex: title, $options: 'i' };
+  if (description) query.description = { $regex: description, $options: 'i' };
   if (searchText) {
     const sanitizedSearchText = searchText.replace(/\s+/g, '');
     query.$or = [
@@ -452,31 +447,25 @@ const getVideos = async (criteria) => {
       { description: { $regex: sanitizedSearchText, $options: 'i' } }
     ];
   }
+  if (category) query.category = category.toLowerCase();
+  if (isShort !== undefined) query.isShort = isShort;
+  if (uid) query.uid = uid;
+  if (notUid) query.uid = { $ne: notUid };
   
-
-  if (category) query.category = category.toLowerCase()
-
-
-  if (isShort !== undefined) query.isShort = isShort  // Add check for isShort
-
-  if (uid) { query.uid = uid }
-
-  if (notUid) { query.uid = { $ne: notUid } }
-
   if (tag) {
-    const tagData = await Tag.findOne({ name: tag })
+    const tagData = await Tag.findOne({ name: tag });
     query.$or = [
       { tags: { $in: [tagData?._id || null] } },
       { hashTags: { $in: [tagData?._id || null] } }
-    ]
+    ];
   }
 
-  const sortOptions = {}
-  if (sortOrder) sortOptions.uploadDate = sortOrder === 'asc' ? 1 : -1
+  const sortOptions = {};
+  if (sortOrder) sortOptions.uploadDate = sortOrder === 'asc' ? 1 : -1;
 
   try {
     // Count the total number of videos matching the query
-    const totalItems = await Video.countDocuments(query).exec()
+    const totalItems = await Video.countDocuments(query).exec();
 
     // Fetch the videos for the current page
     const videos = await Video.find(query)
@@ -489,18 +478,24 @@ const getVideos = async (criteria) => {
         path: 'channel',
         select: 'name uid logoURL'
       })
-      .exec()
+      .exec();
 
     // Determine if there are next and previous pages
-    const next = page * limit < totalItems ? page + 1 : null
-    const previous = page > 1 ? page - 1 : null
-    const videosWithDetails = await Promise.all(videos.map(async video => {
-      const { videoId, channel, description, isDraft, uploadDate, privacySettings, title, comments, uid, likes, dislikes } = video
+    const next = page * limit < totalItems ? page + 1 : null;
+    const previous = page > 1 ? page - 1 : null;
 
-      // Fetch video details from BunnyCDN
-      const bunnyVideo = await getBunnyVideo(videoId)
+    // Fetch video details from BunnyCDN for each video
+    const videosWithDetails = await Promise.all(videos.map(async (video) => {
+      const { videoId, channel, description, isDraft, uploadDate, privacySettings, title, comments, uid, likes, dislikes } = video;
 
-      const { views, length, thumbnailFileName, category } = bunnyVideo
+      const bunnyVideo = await getBunnyVideo(videoId);
+
+      if (!bunnyVideo) {
+        console.warn(`bunnyVideo is null for videoId: ${videoId}`);
+        return null; // Skip this video
+      }
+
+      const { views, length, thumbnailFileName, category } = bunnyVideo;
 
       return {
         restrictions: category.toLowerCase() === 'adult' || category.toLowerCase() === 'hentai' ? '18+' : 'none',
@@ -517,21 +512,43 @@ const getVideos = async (criteria) => {
         privacySettings,
         title,
         comments: comments.length,
-        likeDislike: likes.length + dislikes.length === 0 ? 0 : (likes.length / (likes.length + dislikes.length)) * 100
-      }
-    }))
+        likeDislike: likes.length + dislikes.length === 0
+          ? 0
+          : (likes.length / (likes.length + dislikes.length)) * 100
+      };
+    }));
+
+    const filteredVideos = videosWithDetails.filter(Boolean);
 
     return {
       totalItems,
       currentPage: page,
       next,
       previous,
-      items: videosWithDetails
-    }
+      items: filteredVideos
+    };
   } catch (error) {
-    console.error("Error fetching videos:", error)
-    throw error
+    console.error("Error fetching videos:", error);
+    throw error;
   }
-}
+};
 
-module.exports = { getShorts, getTagVideos, getPublicVideos, getTagShorts, updateVideoLikesDislikes, editVideo, createVideo, canEdit, createUpload, getBunnyVideo, getPlayerLink, getVideo, getVideos, deleteVideo, searchVideos, getStudioVideos, getStudioShorts }
+module.exports = {
+  getShorts,
+  getTagVideos,
+  getPublicVideos,
+  getTagShorts,
+  updateVideoLikesDislikes,
+  editVideo,
+  createVideo,
+  canEdit,
+  createUpload,
+  getBunnyVideo,
+  getPlayerLink,
+  getVideo,
+  getVideos, // <-- included here!
+  deleteVideo,
+  searchVideos,
+  getStudioVideos,
+  getStudioShorts
+};
